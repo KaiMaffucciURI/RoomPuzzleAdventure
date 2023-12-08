@@ -1,6 +1,9 @@
 % text adventure puzzle game
 
+% I could add a lot more to the game, but it is in a pretty good state now, and other things await
+
 % I know the '=' operator in prolog isnt an equality, but it still works how I use it throughout the script
+
 
 % keeps track of what is in the player inventory
 :- dynamic inv/1.
@@ -95,7 +98,7 @@ describe(Item) :-
       writeln('An already-opened treasure-chest.') ;
     Item = normal_painting ->
       writeln('The painting is of a spiral galaxy, one you have never heard of before.'),
-      writeln('Any magic that may have been previously enchanted in the painting has been dispelled') ;
+      writeln('Any magic that may have been previously enchanted in the painting has been dispelled.') ;
     Item = painting ->
       writeln('The painting is of a spiral galaxy, one you have never heard of before.'),
       writeln('Something seems very off and/or wrong about this painting.'),
@@ -116,7 +119,7 @@ try_room_inv(RoomSel, InvSel) :-
       RoomSel = chest -> try_chest(InvSel) ;
       RoomSel = painting -> try_painting(InvSel) ;
       RoomSel = nightstand -> try_nightstand(InvSel) ;
-      RoomSel = lamp -> try_nightstand(InvSel) )
+      RoomSel = lamp -> try_lamp(InvSel) )
     ; invalid_sel
   ).
 
@@ -147,8 +150,10 @@ try_carpet(InvSel) :- (
       writeln('You already got the key from under here.') ;
     writeln('Lifting the carpet up, you find a key!'),
     assert(inv(key)) ) ;
-  InvSel = foot ->
-    writeln('Tapping your foot, you feel a tiny bulge in the carpet.') ;
+  InvSel = foot -> (
+    inv(key) ->
+      writeln('The carpet feels flat on your feet.')
+    ; writeln('Tapping your foot, you feel a tiny bulge in the carpet.') ) ;
   InvSel = head ->
     writeln('You bump your head into the carpet. It smells like mildew.')
   ).
@@ -227,10 +232,15 @@ try_nightstand(InvSel) :- (
       (inv(toy) ; inv(toy_dust)) -> writeln('The nightstand shakes.') ;
       writeln('You hear a thudding sound from inside the nightstand.')
     ),
-    writeln('Suddenly, the lamp on top of the nightstand falls onto the floor!'),
-    fire_death_msg,
-    abort ;
-  InvSel = hand -> (
+    (
+      inv(lamp) ->
+        writeln('The nightstand eventually stops shaking.')
+      ;
+        writeln('Suddenly, the lamp on top of the nightstand falls onto the floor!'),
+        fire_death_msg, 
+        abort
+    ) 
+  ; InvSel = hand -> (
     inv(toy) ->
       writeln('The drawer is empty.')
     ;
@@ -290,16 +300,19 @@ interact :-
     (RoomSel = 'quit' ; RoomSel = 'exit') ->
       writeln('BYEBYE!'), abort ;
     RoomSel = 'clear' ->
-      tty_clear ; (
-        writeln('Choose something in your inventory to apply: '),
-        read(InvSel),
-        writeln(''), write('You chose '), write(InvSel), writeln(''),
+      tty_clear
+    ;
+      writeln('Choose something in your inventory to apply: '),
+      read(InvSel),
+      writeln(''), write('You chose '), write(InvSel), writeln(''),
       
-        % does a thing based on both of the players inputs
-        (inv(InvSel) ->
-          try_room_inv(RoomSel, InvSel)
-        ; writeln('That item is not in your inventory, back to room select.')))
-    ) ; writeln('That item is not in the room, please try again.')
+      % does a thing based on both of the players inputs
+      (inv(InvSel) ->
+        try_room_inv(RoomSel, InvSel)
+      ;
+        writeln('That item is not in your inventory, back to room select.'))
+    ) ;
+      writeln('That item is not in the room, please try again.')
   ),
   
   interact.
