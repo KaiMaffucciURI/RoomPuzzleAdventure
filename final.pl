@@ -25,7 +25,7 @@ print_room :-
 
 print_option :-
   writeln('Other options (only work on room prompt): '),
-  forall(option(X)), writeln(X)).
+  forall(option(X), writeln(X)).
   
 print_all :-
   writeln(''), print_room,
