@@ -4,23 +4,39 @@
 
 % keeps track of what is in the player inventory
 :- dynamic inv/1.
+
 % keeps track of what is in the room
 :- dynamic room/1.
-
-
-% predicates to write to screen
-print_inv :- writeln('Items in your inventory: '), forall(inv(X), writeln(X)).
-print_room :- writeln('Items in the room: '), forall(room(X), writeln(X)).
-print_all :- writeln(''), print_room, writeln(''), print_inv.
-
-
-% retracts everything from everywhere
-nuke :- retractall(inv(_)), retractall(room(_)). 
 
 % lists of things the user can do that is not in the room, but is a valid option still
 option(quit).
 option(exit).
 option(clear).
+
+
+% predicates to write to screen
+print_inv :-
+  writeln('Items in your inventory: '),
+  forall(inv(X), writeln(X)).
+
+print_room :-
+  writeln('Items in the room: '),
+  forall(room(X), writeln(X)).
+
+print_option :-
+  writeln('Other options (only work on room prompt): '),
+  forall(option(X)), writeln(X)).
+  
+print_all :-
+  writeln(''), print_room,
+  writeln(''), print_inv,
+  writeln(''), print_option,
+  writeln('').
+
+
+% retracts everything from everywhere
+nuke :- retractall(inv(_)), retractall(room(_)). 
+
 
 % adds necessary facts for starting the game
 start_room :-
@@ -31,6 +47,7 @@ start_room :-
   assert(room(lamp)),
   assert(room(nightstand)),
   assert(room(painting)).
+
 start_inv :-
   assert(inv(eyes)),
   assert(inv(foot)),
@@ -260,7 +277,7 @@ interact :-
 
 
 % sets up the starting scenario
-game :-
+play :-
   nuke, 
   start_room,
   start_inv,
