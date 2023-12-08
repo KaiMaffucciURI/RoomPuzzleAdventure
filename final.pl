@@ -1,6 +1,9 @@
 % text adventure puzzle game
 
+% I could add a lot more to the game, but it is in a pretty good state now, and other things await
+
 % I know the '=' operator in prolog isnt an equality, but it still works how I use it throughout the script
+
 
 % keeps track of what is in the player inventory
 :- dynamic inv/1.
@@ -90,10 +93,12 @@ describe(Item) :-
     Item = lamp ->
       writeln('A lamp sitting on top of the nightstand, fueled by an oil of some kind. It is lit, and its flame flickers across the room.') ;
     Item = nightstand ->
-      writeln('It has a drawer and a top. Resting above is the lamp.') ;
+      writeln('It has a drawer and a top.') ;
+    Item = opened_chest ->
+      writeln('An already-opened treasure-chest.') ;
     Item = normal_painting ->
       writeln('The painting is of a spiral galaxy, one you have never heard of before.'),
-      writeln('Any magic that may have been previously enchanted in the painting has been dispelled') ;
+      writeln('Any magic that may have been previously enchanted in the painting has been dispelled.') ;
     Item = painting ->
       writeln('The painting is of a spiral galaxy, one you have never heard of before.'),
       writeln('Something seems very off and/or wrong about this painting.'),
@@ -105,7 +110,7 @@ describe(Item) :-
 % does the same thing if inventory item is eyes no matter what (gives description)
 % no need to check if they actually have the item in inventory because we do that earllier
 
-try_room_inv(RoomSel,InvSel) :-
+try_room_inv(RoomSel, InvSel) :-
   (
     InvSel = eyes -> describe(RoomSel) ; (
       RoomSel = door -> try_door(InvSel) ;
@@ -114,18 +119,20 @@ try_room_inv(RoomSel,InvSel) :-
       RoomSel = chest -> try_chest(InvSel) ;
       RoomSel = painting -> try_painting(InvSel) ;
       RoomSel = nightstand -> try_nightstand(InvSel) ;
-      RoomSel = lamp -> try_nightstand(InvSel)) ;
-    invalid_sel
+      RoomSel = lamp -> try_lamp(InvSel) )
+    ; invalid_sel
   ).
 
 
+% there is sort of a bug with this one, but it actually sort of makes sense and its funny so im leaving it
+% (the player can pull infinite books out of the bookshelf)
 try_bookshelf(InvSel) :- (
   InvSel = foot ->
     writeln('You kick the bookshelf, and some books fall off.') ;
   InvSel = hand ->
     writeln('You reach for a book in the bookshelf and take it off.'),
     writeln('It appears to be an ancient tome of some kind.'), 
-    assert(inv(book));
+    assert(inv(book)) ;
   InvSel = head ->
     writeln('You ram your head into the bookshelf, and it hurts a lot.'),
     brain_death_msg,
@@ -138,19 +145,25 @@ try_bookshelf(InvSel) :- (
 
 
 try_carpet(InvSel) :- (
-  InvSel = hand ->
+  InvSel = hand -> (
+    inv(key) ->
+      writeln('You already got the key from under here.') ;
     writeln('Lifting the carpet up, you find a key!'),
-    assert(inv(key)) ;
-  InvSel = foot ->
-    writeln('Tapping your foot, you feel a tiny bulge in the carpet.') ;
+    assert(inv(key)) ) ;
+  InvSel = foot -> (
+    inv(key) ->
+      writeln('The carpet feels flat on your feet.')
+    ; writeln('Tapping your foot, you feel a tiny bulge in the carpet.') ) ;
   InvSel = head ->
     writeln('You bump your head into the carpet. It smells like mildew.')
-  ; invalid_sel).
+  ).
 
 
 try_chest(InvSel) :- (
-  InvSel = foot ->
-    writeln('As you kick the chest, you hear the sound of clinging coins coming from inside the chest.') ;
+  InvSel = foot -> (
+    inv(treasure) ->
+      writeln('The chest is empty.')
+    ; writeln('As you kick the chest, you hear the sound of clinging coins coming from inside the chest.') ) ;
   InvSel = hand ->
     writeln('The chest will not budge!') ;
   InvSel = head ->
@@ -161,11 +174,12 @@ try_chest(InvSel) :- (
     writeln('The key opens the chest!'),
     writeln('There is treasure inside!'),
     writeln('It is a pile of golden coins.'),
-    assert(inv(treasure))
+    assert(inv(treasure)),
+    retract(room(chest)),
+    assert(room(opened_chest))
   ).
 
 
-% TODO: add special message if they escape with treasure
 try_door(InvSel) :- (
   InvSel = foot -> 
     writeln('You kick the door, and it hurts a lot!'),
@@ -182,8 +196,11 @@ try_door(InvSel) :- (
   InvSel = key ->
     writeln('You put the key in the lock and it opens!'),
     writeln('You escape! You win!'),
+    ( inv(treasure) -> writeln('You escaped with the treasure! You are rich!') ; write('') ),
+    ( inv(toy) -> writeln('Pervert.') ; write('') ),
     abort
   ).
+
 
 try_lamp(InvSel) :- (
   InvSel = foot ->
@@ -191,10 +208,15 @@ try_lamp(InvSel) :- (
     writeln('The flaming lamp falls over, catching the room on fire.'),
     fire_death_msg,
     abort ;
-  InvSel = hand ->
-    writeln('You pick up the flaming lamp and put it into your inventory.'),
-    assert(inv(lamp)),
-    retract(room(lamp)) ;
+  InvSel = hand -> (
+    inv(lamp) ->
+      writeln('You already have the lamp.')
+    ;
+      writeln('You pick up the flaming lamp and put it into your inventory.'),
+      assert(inv(lamp)),
+      retract(room(lamp)
+    )
+  ) ;
   InvSel = head ->
     writeln('REALLY why would you do that?'),
     writeln('The lamp shatters on your head and catches fire!'),
@@ -206,15 +228,26 @@ try_lamp(InvSel) :- (
 try_nightstand(InvSel) :- (
   InvSel = foot ->
     writeln('You kick the nightstand.'),
-    writeln('You hear a thudding sound from inside the nightstand.'),
-    writeln('Suddenly, the lamp on top of the nightstand falls onto the floor!'),
-    fire_death_msg,
-    abort ;
-  InvSel = hand ->
-    writeln('You open the drawer to the nightstand'),
-    writeln('Here you find a... uh... secret stash of... some kind.'),
-    writeln('This is awkward....'),
-    assert(inv(toy)) ;
+    (
+      (inv(toy) ; inv(toy_dust)) -> writeln('The nightstand shakes.') ;
+      writeln('You hear a thudding sound from inside the nightstand.')
+    ),
+    (
+      inv(lamp) ->
+        writeln('The nightstand eventually stops shaking.')
+      ;
+        writeln('Suddenly, the lamp on top of the nightstand falls onto the floor!'),
+        fire_death_msg, 
+        abort
+    ) 
+  ; InvSel = hand -> (
+    inv(toy) ->
+      writeln('The drawer is empty.')
+    ;
+      writeln('You open the drawer to the nightstand'),
+      writeln('Here you find a... uh... secret stash of... some kind.'),
+      writeln('This is awkward....'),
+      assert(inv(toy)) ) ;
   InvSel = head ->
     writeln('You ram your head into the nightstand!'),
     writeln('The lamp shakes and falls over, spewing flaming oil everywhere!'),
@@ -243,7 +276,14 @@ try_painting(InvSel) :- (
     abort
   ;
     writeln('The item is absorbed into the painting!'),
-    retract(inv(InvSel))
+    retract(inv(InvSel)), (
+      InvSel = key ->
+        assert(inv(key_dust)) ;
+      InvSel = treasure ->
+        assert(inv(treasure_dust)) ;
+      InvSel = toy ->
+        assert(inv(toy_dust))
+    )
   ).
 
 
@@ -254,21 +294,23 @@ interact :-
   print_all,
   writeln('Choose something in the room to interact with.'),
   read(RoomSel),
-  writeln('You chose '), write(RoomSel), writeln(''),
+  writeln(''), write('You chose '), write(RoomSel), writeln(''),
   
   ((room(RoomSel) ; option(RoomSel)) -> (
     (RoomSel = 'quit' ; RoomSel = 'exit') ->
       writeln('BYEBYE!'), abort ;
     RoomSel = 'clear' ->
-      tty_clear ; (
-        writeln('Choose something in your inventory to apply: '),
-        read(InvSel),
-        write('\nYou chose '), write(InvSel), writeln(''),
+      tty_clear
+    ;
+      writeln('Choose something in your inventory to apply: '),
+      read(InvSel),
+      writeln(''), write('You chose '), write(InvSel), writeln(''),
       
-        % does a thing based on both of the players inputs
-        (inv(InvSel) ->
-          try_room_inv(RoomSel, InvSel)
-        ; writeln('That item is not in your inventory, back to room select.')))
+      % does a thing based on both of the players inputs
+      (inv(InvSel) ->
+        try_room_inv(RoomSel, InvSel)
+      ;
+        writeln('That item is not in your inventory, back to room select.'))
     ) ;
       writeln('That item is not in the room, please try again.')
   ),
